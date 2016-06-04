@@ -314,17 +314,17 @@ io.sockets.on('connection', function(socket){
     socket.on('client_login',function(msg){
     
     //receive data and room
-     console.log('User email: '+msg.userEmail + "User password: "+msg.userPassword);
+     console.log('Username: '+msg.userName + "User password: "+msg.userPassword);
      
     //Returning the id of the new user to the client
-    userOp.findOne({userEmail:msg.userEmail, userPassword:msg.userPassword},function(err,data){
+    userOp.findOne({userName:msg.userName, userPassword:msg.userPassword},function(err,data){
      if(err) {
               socket.emit('server_login',"Error occured");
               console.log('Error 0 : '+ err);
        } else {
           
         if (data) {
-            console.log('Auth 0 : '+ data.userEmail);
+            console.log('Auth 0 : '+ data.userName);
             console.log('Auth 1 : '+ data.userPassword);
             console.log('Auth 2 : '+ data._id);
             
@@ -334,10 +334,14 @@ io.sockets.on('connection', function(socket){
             //Send to client:
             socket.emit('server_login',data._id);
             
-            //Emitting the list of users' online
-            io.emit('server_useronlinelist',userOnlineList);
+            //Statistics
+            var usr=data._id;
+            playerstatistic(usr);
             
-            console.log('User list : '+ userOnlineList);
+            //Emitting the list of users' online
+            //io.emit('server_useronlinelist',userOnlineList);
+            
+            //console.log('User list : '+ userOnlineList);
          }else{
              
             console.log('Empty object: no match found');
@@ -391,6 +395,8 @@ io.sockets.on('connection', function(socket){
                          //Update the database
                          score(SERV_USERID, SERV_QUESTIONID, 1);
                          console.log('ANS 1 '+ rightanswer);
+                         //Statistics
+                         //playerstatistic(SERV_USERID);
 
                     }else{
                         SERV_RESULT = "WRONG";
@@ -404,7 +410,8 @@ io.sockets.on('connection', function(socket){
                          //Update the database
                          score(SERV_USERID, SERV_QUESTIONID, 0);
                          console.log('ANS 2 '+ rightanswer);
-
+                         //Statistics
+                         //playerstatistic(SERV_USERID);
                     }
                     console.log('Auth 0 : '+ data.userEmail);
                  }else{
@@ -422,7 +429,7 @@ io.sockets.on('connection', function(socket){
 
    //Dispatch random questions to all players
     socket.on('client_question', function(data) {
-            console.log('Question received');
+            console.log('Question request received');
             questionDispatcher();
             console.log('Question dispatched');
           });
@@ -439,6 +446,32 @@ io.sockets.on('connection', function(socket){
         var newuser = "the new user is :"+data
         io.sockets.emit('server_username', newuser);
     });
+  
+    
+        //Score insertion
+    function playerstatistic(useruid){
+       //console.log("Statistics uid before : "+useruid);
+        scoreOp.aggregate([
+        { $group: {
+            _id: '$userid',
+            scoreSum: { $sum: '$score'},
+            scoreCount: {$sum:1},
+            scoreAvg: {$avg: '$score'}
+        }},
+        { $match: { _id:''+useruid+'' } }
+
+    ], function (err, results) {
+        if (err) {
+            console.error(err);
+        } else {
+            console.log("Statistics : ",results);
+              socket.emit('server_userstat', results);
+        //console.log("Statistics uid after : "+useruid);
+
+        }
+    }
+);
+    }
     
     //Score insertion
     function score(uid, qid, sc){
@@ -453,6 +486,8 @@ io.sockets.on('connection', function(socket){
                 console.log("Error adding data");
                } else {
                 console.log("Score data added");
+                //Statistics
+                playerstatistic(uid);
              }
         });
     }

@@ -110,7 +110,9 @@ $(function () {
             };
        socket.emit('client_answer' ,answer);
         console.log('ANSWER SENT TO THE SERVER');
-
+        console.log('CURR_USERID : '+CURR_USERID);
+        console.log('CURR_QUESTIONID : '+CURR_QUESTIONID);
+        console.log('CURR_RESULT : '+CURR_RESULT);
         
     });
 });    
@@ -142,7 +144,7 @@ $(function () {
         
         //Authenticate the user
         var user = {     
-            userEmail: username,
+            userName: username,
             userPassword: password
             };
        socket.emit('client_login' ,user);
@@ -200,7 +202,7 @@ $(function () {
         console.log('answer1: '+content[0]['answer1']); //answer 1
         console.log('answer2: '+content[0]['answer2']); //answer 2
         console.log('answer3: '+content[0]['answer3']); //answer 3
-        console.log('chosen answer : '+answer); //answer 3
+        //console.log('chosen answer : '+answer); //answer 3
         //alert(data_array[0]);
         //var question = content.quest;
         //document.getElementById('show_quest').innerHTML=question;
@@ -213,6 +215,20 @@ $(function () {
         document.getElementById('display-json').innerHTML=content['answer'];
         console.log('chosen answer1 : '+content.answer); //answer 1
         console.log('chosen answer2 : '+content.questionId); //answer 2
+        });
+        
+        
+        //receive server_userstat from server
+        socket.on('server_userstat',function(content){       
+        //document.getElementById('statuser').innerHTML=content[0]._id;
+        document.getElementById('statquestion').innerHTML=content[0].scoreCount;
+        document.getElementById('statcorrect').innerHTML=content[0].scoreSum;
+        document.getElementById('stataverage').innerHTML=content[0].scoreAvg;
+
+        console.log('stat uid : '+content[0]._id); //answer 1
+        console.log('stat total : '+content[0].scoreSum); //answer 2
+        console.log('stat avg : '+content[0].scoreAvg); //answer 1
+        console.log('stat count : '+content[0].scoreCount); //answer 2
         });
  });  
     //]]>

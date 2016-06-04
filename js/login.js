@@ -31,7 +31,7 @@ $(document).ready(function () {
         email: firstname,
         password: password
     };
-
+/*
     $.ajax({
         url: "/users",
         type: "POST",
@@ -45,6 +45,7 @@ $(document).ready(function () {
             console.log("status "+status);
         }
     });
+    */
     //window.location.href = '/about';
     //var url = "http://jquery4u.com";    
     //$(location).attr('href',url);
