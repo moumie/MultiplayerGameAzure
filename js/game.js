@@ -3,6 +3,10 @@ $(document).ready(function () {
   var socket = io();   
   var answer_chosen="";
   var answer_correct="";
+  var CURR_USERID="";
+  var CURR_QUESTIONID="";
+  var CURR_RESULT="";
+  
 $(function () {
     $('.list-group.checked-list-box .list-group-item').each(function () {
         
@@ -86,11 +90,28 @@ $(function () {
         var result="";
         $("#check-list-box li.active").each(function(idx, li) {
             answer_chosen = $(li).text();
+            
+            //Getting current answer
+            CURR_RESULT = answer_chosen;
+            
+            /*
             if ( answer_correct === answer_chosen)
                 result ="RIGHT";
             else result ="WRONG";
+            */
         });
-        $('#display-json').html(result);
+        //$('#display-json').html(result);
+        
+        //Send answer to the server
+         var answer = {     
+            userId: CURR_USERID,
+            questionId: CURR_QUESTIONID,
+            result: CURR_RESULT
+            };
+       socket.emit('client_answer' ,answer);
+        console.log('ANSWER SENT TO THE SERVER');
+
+        
     });
 });    
    console.log('about.js file loaded');
@@ -116,11 +137,25 @@ $(function () {
    
     socket.on('connect', function() {
         
-        socket.emit('username', username);
+    socket.emit('username', username);
         console.log('Room = '+password);
         
-        //Requestion question
+        //Authenticate the user
+        var user = {     
+            userEmail: username,
+            userPassword: password
+            };
+       socket.emit('client_login' ,user);
    });
+   
+   //Get User ID after the authentication
+    //get newly registered user credentials
+        socket.on('server_login',function(userId){
+            document.getElementById('loginid').innerHTML=userId;
+            //Getting current user id
+            CURR_USERID = userId;
+        });
+         
    
     //receive server_roomlist from server
     socket.on('server_username',function(content){
@@ -139,7 +174,10 @@ $(function () {
       
       //receive server_question from server
         socket.on('server_question',function(content){
-       //String loudScreaming = json.getJSONObject("LabelData").getString("slogan");
+        //Getting current question id
+        CURR_QUESTIONID = content[0]['_id'];
+        
+        //Extracting question attributes
         console.log('Elementy: '+content['quest']);
         console.log('Elementy: '+content[0]['quest']);
         //document.getElementById('show_question').innerHTML=JSON.stringify(content);
@@ -163,10 +201,18 @@ $(function () {
         console.log('answer2: '+content[0]['answer2']); //answer 2
         console.log('answer3: '+content[0]['answer3']); //answer 3
         console.log('chosen answer : '+answer); //answer 3
- //alert(data_array[0]);
+        //alert(data_array[0]);
         //var question = content.quest;
         //document.getElementById('show_quest').innerHTML=question;
 
+        });
+        
+        
+       //receive server_answer from server
+        socket.on('server_answer',function(content){       
+        document.getElementById('display-json').innerHTML=content['answer'];
+        console.log('chosen answer1 : '+content.answer); //answer 1
+        console.log('chosen answer2 : '+content.questionId); //answer 2
         });
  });  
     //]]>

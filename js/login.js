@@ -1,5 +1,5 @@
 $(document).ready(function () {
-   console.log('login.js file loaded');
+   console.log('signup.js file loaded');
    
 
    //Login button
@@ -67,7 +67,7 @@ $(document).ready(function () {
     */
  });  
     //]]>
-    
+   /* 
    //Signup button
    //require node modules (see package.json)
     $("#btnlogin").click(function(){
@@ -104,5 +104,5 @@ $(document).ready(function () {
  
  });  
     //]]>
-   
+   */
 }); 

@@ -11,6 +11,7 @@ var path = __dirname + '/views/';
 var pathdbuser = __dirname + '/models/user.js';
 var pathdbquestion = __dirname + '/models/question.js';
 var pathdbpeople = __dirname + '/models/people.js';
+var pathscore = __dirname + '/models/score.js';
 var pathmongo = __dirname + '/models/mongo.js';
 
 var MONGODB_DATABASE_URL='mongodb://localhost:27017/test';
@@ -19,7 +20,11 @@ var MONGODB_DATABASE_URL='mongodb://localhost:27017/test';
 var userOp = require(pathdbuser);
 var questionOp = require(pathdbquestion);
 var peopleOp = require(pathdbpeople);
+var scoreOp = require(pathscore);
 var mongoOp = require(pathmongo);
+
+//list of users online
+var userOnlineList = new Object(); 
 
 app.use('/htmlfiles',express.static(__dirname + '/views'));
 app.use('/jsfiles',express.static(__dirname + '/js'));
@@ -129,6 +134,34 @@ router.route("/questions/:id")
  */
 
 
+/*
+ * Begin : SIGNUP
+ */
+//1 : GET /users – Return all Users from MongoDB
+router.route("/signup")
+        .post(function(req,res){
+        var db = new userOp();
+        var response = {};
+        db.userName = req.body.userName; 
+        db.userPassword = req.body.userPassword;// require('crypto')
+        db.userFirstname = req.body.userFirstname; 
+        db.userLastname = req.body.userLastname; 
+        db.userEmail = req.body.userEmail; 
+
+        db.save(function(err){
+        // save() will run insert() command of MongoDB.
+        // it will add new data in collection.
+            if(err) {
+                response = {"error" : true,"message" : "Error adding data"};
+            } else {
+                response = {"error" : false,"message" : "Data added"};
+            }
+            res.json(response);
+        });
+    });
+/*
+ * End : SIGNUP
+ */
 
 
 /*
@@ -277,7 +310,115 @@ http.listen(port, function () {
 io.sockets.on('connection', function(socket){
     console.log('Connected to a new client');
 
-  
+  //Server receives new login credentials (userEmail, userPassword) from a client 
+    socket.on('client_login',function(msg){
+    
+    //receive data and room
+     console.log('User email: '+msg.userEmail + "User password: "+msg.userPassword);
+     
+    //Returning the id of the new user to the client
+    userOp.findOne({userEmail:msg.userEmail, userPassword:msg.userPassword},function(err,data){
+     if(err) {
+              socket.emit('server_login',"Error occured");
+              console.log('Error 0 : '+ err);
+       } else {
+          
+        if (data) {
+            console.log('Auth 0 : '+ data.userEmail);
+            console.log('Auth 1 : '+ data.userPassword);
+            console.log('Auth 2 : '+ data._id);
+            
+            //Add user in the list
+            userOnlineList[data._id]=data.userEmail;
+            
+            //Send to client:
+            socket.emit('server_login',data._id);
+            
+            //Emitting the list of users' online
+            io.emit('server_useronlinelist',userOnlineList);
+            
+            console.log('User list : '+ userOnlineList);
+         }else{
+             
+            console.log('Empty object: no match found');
+            
+            //Authentication fails, no match found message sent:
+            socket.emit('server_login', 'no match found');
+         } 
+         
+       }
+    }); 
+    });
+    
+    //Getting chosen answer and updating the database
+    socket.on('client_answer', function(answerdata) {
+            console.log('Userid : '+ answerdata.userId);
+            console.log('Questionid : '+ answerdata.questionId);
+            console.log('Result : '+ answerdata.result);
+            
+            //Comparing the user answer
+             //Returning the id of the new user to the client
+            questionOp.findOne({_id:answerdata.questionId},function(err,data){
+              //Authenticate the user
+            //Send answer to the client
+            var SERV_USERID=answerdata.userId;
+            var SERV_QUESTIONID=answerdata.questionId;
+            var SERV_RESULT="";
+            
+            //Extracting the right answer
+            var suffix = data.answer;
+            var rightanswer= data["answer"+suffix];
+            console.log('Answer Index : '+ suffix);
+            console.log('Answer WWW : '+ rightanswer);
+
+            
+             if(err) {
+                      //socket.emit('server_login',"Error occured");
+                      console.log('Error 0 : '+ err);
+               } else {
+
+                if (data) {
+                    if(rightanswer===answerdata.result){
+                        SERV_RESULT = "RIGHT";
+                        var answer = {     
+                        userId: SERV_USERID,
+                        questionId: SERV_QUESTIONID,
+                        answer: SERV_RESULT
+                        };
+                         //Send to client:
+                         socket.emit('server_answer',answer);
+                         
+                         //Update the database
+                         score(SERV_USERID, SERV_QUESTIONID, 1);
+                         console.log('ANS 1 '+ rightanswer);
+
+                    }else{
+                        SERV_RESULT = "WRONG";
+                        var answer = {     
+                        userId: SERV_USERID,
+                        questionId: SERV_QUESTIONID,
+                        answer: SERV_RESULT
+                        };
+                         //Send to client:
+                         socket.emit('server_answer',answer);
+                         //Update the database
+                         score(SERV_USERID, SERV_QUESTIONID, 0);
+                         console.log('ANS 2 '+ rightanswer);
+
+                    }
+                    console.log('Auth 0 : '+ data.userEmail);
+                 }else{
+
+                    console.log('Empty object: no match found');
+
+                    //correct fails, no match found message sent:
+                    socket.emit('server_answer', 'no match found');
+                 } 
+
+               }
+            }); 
+            
+          });
 
    //Dispatch random questions to all players
     socket.on('client_question', function(data) {
@@ -299,6 +440,22 @@ io.sockets.on('connection', function(socket){
         io.sockets.emit('server_username', newuser);
     });
     
+    //Score insertion
+    function score(uid, qid, sc){
+        var db = new scoreOp();
+        db.userid=uid;
+        db.questionid=qid;
+        db.score=sc;
+        db.save(function(err){
+        // save() will run insert() command of MongoDB.
+        // it will add new data in collection.
+        if(err) {
+                console.log("Error adding data");
+               } else {
+                console.log("Score data added");
+             }
+        });
+    }
     
     //Question dispatcher 
     function questionDispatcher(){
@@ -308,21 +465,10 @@ io.sockets.on('connection', function(socket){
     questionOp.find({ "random": { $lt: random }}, function (err, result) {    
          //console.log("Random gt docs"+ result); 
            io.sockets.emit('server_question', result);
-         /*
-          socket.on('client_question', function(data) { 
-            console.log('Question is : ', result);
-            io.sockets.emit('server_question', result);
-          });
-          */
+         
          if (result === null) {
          questionOp.find({ "random": { $gt: random }}, function (err, result) {
-         //console.log("Random lt docs"+ result);
-         /*
-         socket.on('client_question', function(data) { 
-            console.log('Question is : ', result);
-            io.sockets.emit('server_question', result);
-          });
-          */
+         
          io.sockets.emit('server_question', result);
 
           
